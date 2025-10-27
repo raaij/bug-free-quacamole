@@ -1,0 +1,199 @@
+/* DrawDash Custom Styles */
+
+/* Global styles */
+:root {
+    --primary-blue: #2563eb;
+    --success-green: #10b981;
+    --background-light: #f9fafb;
+    --text-dark: #1f2937;
+    --border-gray: #e5e7eb;
+}
+
+/* Hide Streamlit branding */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Header styling */
+.main-header {
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.main-header h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    margin-bottom: 0.5rem;
+}
+
+.main-header p {
+    font-size: 1.2rem;
+    color: #6b7280;
+}
+
+/* Upload cards */
+.upload-card {
+    background: white;
+    border: 2px dashed var(--border-gray);
+    border-radius: 12px;
+    padding: 2rem;
+    margin: 1rem 0;
+    transition: all 0.3s ease;
+}
+
+.upload-card:hover {
+    border-color: var(--primary-blue);
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.1);
+}
+
+.upload-card.has-file {
+    border-style: solid;
+    border-color: var(--success-green);
+    background: #f0fdf4;
+}
+
+/* Required indicator */
+.required-star {
+    color: #ef4444;
+    font-weight: bold;
+}
+
+/* Progress bar custom styling */
+.stProgress > div > div > div > div {
+    background-color: var(--primary-blue);
+}
+
+/* Progress stage text */
+.progress-stage {
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+/* Chat message styling */
+.chat-message {
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 0.5rem 0;
+    max-width: 80%;
+}
+
+.chat-message.user {
+    background: var(--primary-blue);
+    color: white;
+    margin-left: auto;
+}
+
+.chat-message.agent {
+    background: #f3f4f6;
+    color: var(--text-dark);
+}
+
+/* Split view layout */
+.split-container {
+    display: flex;
+    gap: 1rem;
+    height: calc(100vh - 200px);
+}
+
+.chat-panel {
+    flex: 0 0 30%;
+    border-right: 1px solid var(--border-gray);
+    padding-right: 1rem;
+    overflow-y: auto;
+}
+
+.dashboard-panel {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Button styling */
+.stButton > button {
+    width: 100%;
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* File uploader styling */
+.uploadedFile {
+    border: 1px solid var(--success-green);
+    border-radius: 8px;
+    padding: 0.5rem;
+    background: #f0fdf4;
+}
+
+/* Success checkmark animation */
+@keyframes checkmark {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.success-check {
+    animation: checkmark 0.5s ease-in-out;
+}
+
+/* Fullscreen mode */
+.fullscreen-dashboard {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+    z-index: 9999;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+/* Quick action chips */
+.quick-action-chip {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    background: var(--background-light);
+    border: 1px solid var(--border-gray);
+    border-radius: 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick-action-chip:hover {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .split-container {
+        flex-direction: column;
+    }
+
+    .chat-panel {
+        flex: 0 0 auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-gray);
+        padding-bottom: 1rem;
+    }
+}
