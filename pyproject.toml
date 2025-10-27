@@ -10,6 +10,7 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.4.1",
+    "google-adk[eval]>=1.17.0",
     "google-adk>=1.17.0",
     "streamlit>=1.39.0",
     "plotly>=5.24.0",
@@ -27,5 +28,6 @@ build-backend = "uv_build"
 dev = [
     "ipython>=9.6.0",
     "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
     "ruff>=0.14.2",
 ]
