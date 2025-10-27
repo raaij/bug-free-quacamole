@@ -6,12 +6,13 @@ root_agent = Agent(
     name="query_execution_agent",
     model="gemini-2.5-flash",
     description="Agent that executes queries and provides a text description of results..",
-    instruction=("""
+    instruction=(
+        """
 You execute queries against a database and provide the user with the result.
 The database engine in use is DuckDB.
 """
-+ # TODO: Replace this with metadata extracted by metadata agent.
-"""
+        +  # TODO: Replace this with metadata extracted by metadata agent.
+        """
 You have access to the `marketing` table.
 
 This has the following columns:
@@ -36,6 +37,7 @@ This has the following columns:
 "PRC_FULL_PAYMENT","The percentage of time the customer has paid the full balance."
 "TENURE","The duration of the customer's account tenure, in months."
 </csv>
-"""),
-    tools=[execute_query]
+"""
+    ),
+    tools=[execute_query],
 )

@@ -1,10 +1,10 @@
 import os
-from pathlib import Path
 
 import duckdb
 
+from draw_dash.constant import PATH_ROOT
+
 # Path constants.
-PATH_ROOT = Path(os.path.dirname(__file__)) / ".." / ".."
 PATH_DATA = PATH_ROOT / "data"
 
 
