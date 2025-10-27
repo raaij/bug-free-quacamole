@@ -4,12 +4,18 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "raaij", email = "rtr@mailbox.org" }
+    { name = "raaij", email = "rtr@mailbox.org" },
+    { name = "anmolbhatia05", email = "anmolbhatia05@gmail.com"},
 ]
 requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.4.1",
     "google-adk[eval]>=1.17.0",
+    "google-adk>=1.17.0",
+    "streamlit>=1.39.0",
+    "plotly>=5.24.0",
+    "pandas>=2.2.0",
+    "pillow>=10.0.0",
     "pandas>=2.3.3",
     "tabulate>=0.9.0",
 ]

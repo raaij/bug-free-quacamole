@@ -1,5 +1,5 @@
-from .execute_query import execute_query
+from .execute_sql import execute_sql
 
 __all__ = [
-    "execute_query",
+    "execute_sql",
 ]
