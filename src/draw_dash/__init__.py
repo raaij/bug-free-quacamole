@@ -1,2 +1,3 @@
-def hello() -> str:
-    return "Hello from draw-dash!"
+from .db import initialise_db
+
+initialise_db()

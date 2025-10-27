@@ -7,4 +7,6 @@ import duckdb
 PATH_ROOT = Path(os.path.dirname(__file__)) / ".." / ".."
 PATH_DATA = PATH_ROOT / "data"
 
-db = duckdb.read_csv(PATH_DATA / "marketing.csv")
+
+def initialise_db():
+    duckdb.read_csv(PATH_DATA / "marketing.csv").create_view("marketing")
