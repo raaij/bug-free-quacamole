@@ -2,6 +2,7 @@
 
 import streamlit as st
 from src.draw_dash.frontend.state import navigate_to
+from src.draw_dash.frontend.components.debug_panel import render_debug_panel
 
 
 def render():
@@ -21,7 +22,12 @@ def render():
         st.markdown("### Review Requirements")
 
     with col3:
-        st.caption(f"Dataset: {st.session_state.dataset_file.name if st.session_state.dataset_file else 'N/A'}")
+        # Display number of datasets
+        if st.session_state.dataset_files:
+            num_files = len(st.session_state.dataset_files)
+            st.caption(f"Datasets: {num_files} file{'s' if num_files > 1 else ''}")
+        else:
+            st.caption("Datasets: N/A")
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -119,6 +125,10 @@ def render():
                     "content": "Can you show data for the last 60 days instead?"
                 })
                 st.rerun()
+
+        # Debug Panel
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        render_debug_panel()
 
 
 def generate_initial_agent_message():

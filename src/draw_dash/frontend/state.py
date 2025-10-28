@@ -11,8 +11,8 @@ def init_session_state():
         st.session_state.screen = "upload"
 
     # Upload screen state
-    if "dataset_file" not in st.session_state:
-        st.session_state.dataset_file = None
+    if "dataset_files" not in st.session_state:
+        st.session_state.dataset_files = None
 
     if "screenshot_file" not in st.session_state:
         st.session_state.screenshot_file = None
@@ -21,10 +21,25 @@ def init_session_state():
         st.session_state.clarification_text = ""
 
     if "upload_status" not in st.session_state:
-        st.session_state.upload_status = "idle"  # idle, uploading, processing, complete
+        st.session_state.upload_status = "idle"  # idle, uploading, processing, complete, error
 
     if "progress" not in st.session_state:
         st.session_state.progress = 0
+
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = None
+
+    if "upload_error" not in st.session_state:
+        st.session_state.upload_error = None
+
+    if "datasets_info" not in st.session_state:
+        st.session_state.datasets_info = None
+
+    if "screenshot_info" not in st.session_state:
+        st.session_state.screenshot_info = None
+
+    if "metadata" not in st.session_state:
+        st.session_state.metadata = None
 
     # Chat screen state
     if "chat_history" not in st.session_state:
