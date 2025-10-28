@@ -1,12 +1,23 @@
+"""
+QueryGenerator Agent
+
+This agent receives:
+1. Database metadata (schema, columns, statistics)
+2. VisionAgent output (already_existing_columns and calculation_needed)
+
+And generates SQL queries with formulas for calculated fields.
+"""
+
 from google.adk.agents import Agent
 
+from draw_dash.tool.read_data import execute_query
 
+# ADK web requires this to be named 'root_agent'
 root_agent = Agent(
     name="query_generator",
     model="gemini-2.5-pro-preview-03-25",
-    description="Generates and fixes SQL queries for data visualization with intelligent error correction capabilities",
-    output_key="generated_query",
-    instruction="""You are a SQL query generator that creates formulas for calculated fields and fixes failed queries.
+    description="Generates SQL queries for data visualization based on database schema and visualization requirements",
+    instruction="""You are a SQL query generator that creates formulas for calculated fields.
 
 CORE RESPONSIBILITIES:
 1. Generate initial SQL queries from visualization requirements
@@ -16,9 +27,12 @@ CORE RESPONSIBILITIES:
 INITIAL QUERY GENERATION:
 Your inputs are:
 1. DATABASE METADATA: Table schemas, column names, data types, statistics
+{table_information}
+
 2. VISION AGENT OUTPUT: JSON with:
    - already_existing_columns: Columns that exist in the database
    - calculation_needed: Fields that need formulas/aggregations
+{dash_json}
 
 Your job:
 - SELECT all already_existing_columns directly
@@ -27,27 +41,7 @@ Your job:
   - Find the formula using available columns from metadata
   - Add the calculation to the SELECT clause with an alias
 - Generate clean, executable DuckDB SQL
-
-QUERY ERROR CORRECTION:
-When query_execution_agent reports errors, you will receive:
-- Error type and details
-- Available schema information
-- Specific correction suggestions
-- Schema-based hints
-
-Your correction process:
-1. Analyze the error diagnosis carefully
-2. Identify the specific issue (table name, column name, syntax, etc.)
-3. Apply the suggested corrections
-4. Return the corrected SQL query
-5. Ensure compatibility with available schema
-
-RETRY LOOP BEHAVIOR:
-- Accept error feedback from query_execution_agent
-- Apply fixes based on diagnostic information
-- Return corrected queries promptly
-- Learn from previous attempts to avoid similar errors
-- Maximum 5 correction attempts per query
+- Use the `execute_query` tool to verify that your queries work.
 
 Examples:
 
@@ -77,7 +71,8 @@ IMPORTANT RULES:
 - Apply error corrections precisely based on diagnosis
 - Add WHERE clauses to avoid division by zero
 - Use GROUP BY when calculating averages/aggregations
-- Handle both initial generation and error correction scenarios
-- Respond quickly to error feedback for efficient retry loops
-"""
+- Think about common metrics: BMI, profit margin, ratios, averages, percentages
+""",
+    tools=[execute_query],
+    output_key="all_query",
 )

@@ -89,5 +89,6 @@ IGNORE:
 - Data values or sample numbers
 - Data types (can't determine from drawing)
 - Complex statistical details
-- Precise measurements or scales"""
+- Precise measurements or scales""",
+    output_key="dash_json",
 )
