@@ -39,7 +39,9 @@ Please modify the dashboard code to show the charts with the queries created.
 
 The dashboard code uses streamlit.
 
-For any queries use DuckDB. You can import duckdb in the dashboard code.
+- For any queries use DuckDB. You can import duckdb in the dashboard code.
+- Always keep the `render` function in the dashboard code.
+- When connecting to DuckDB, use :memory:
 """),
     tools=[read_dashboard_code, modify_dashboard_code],
 )

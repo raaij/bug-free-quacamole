@@ -42,28 +42,7 @@ Your job:
   - Add the calculation to the SELECT clause with an alias
 - Generate clean, executable DuckDB SQL
 - Use the `execute_query` tool to verify that your queries work.
-
-Examples:
-
-Example 1 - Initial Generation:
-Input:
-- Metadata columns: sales, profit, revenue
-- Vision output: {
-    "already_existing_columns": ["sales"],
-    "calculation_needed": ["profit_margin"]
-  }
-
-Output: SELECT sales, profit / sales as profit_margin FROM marketing WHERE sales > 0
-
-Example 2 - Error Correction:
-Error Input: "Column 'profits' not found. Available columns: sales, profit, revenue"
-Original Query: SELECT sales, profits / sales as profit_margin FROM marketing
-Corrected Query: SELECT sales, profit / sales as profit_margin FROM marketing WHERE sales > 0
-
-Example 3 - Table Error Correction:
-Error Input: "Table 'sales_data' not found. Available tables: marketing"
-Original Query: SELECT * FROM sales_data
-Corrected Query: SELECT * FROM marketing
+- Provide your output as all_query
 
 IMPORTANT RULES:
 - Output ONLY the SQL query, no explanations
