@@ -52,35 +52,7 @@ def render():
                 with st.chat_message("user"):
                     st.markdown(message["content"])
 
-        # Chat input
-        user_input = st.chat_input("Confirm or request changes...")
-
-        if user_input:
-            # Add user message
-            st.session_state.chat_history.append({
-                "role": "user",
-                "content": user_input
-            })
-
-            # Check if user confirmed
-            confirmation_keywords = ["looks good", "perfect", "generate", "yes", "correct", "confirmed"]
-            if any(keyword in user_input.lower() for keyword in confirmation_keywords):
-                # User confirmed - start generating dashboard
-                st.session_state.chat_history.append({
-                    "role": "agent",
-                    "content": "Great! Generating your dashboard now... ⚙️"
-                })
-                st.session_state.is_confirmed = True
-                st.rerun()
-
-            else:
-                # User requested changes - agent responds
-                response = "I understand you'd like some changes. Let me update the specifications..."
-                st.session_state.chat_history.append({
-                    "role": "agent",
-                    "content": response
-                })
-                st.rerun()
+        # No chat input needed - automatically proceed
 
         # If confirmed, navigate to dashboard
         if st.session_state.is_confirmed:
@@ -89,43 +61,10 @@ def render():
             time.sleep(2)
             navigate_to("dashboard")
 
-        # Quick action suggestions
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("**Quick actions:**")
-        col_a, col_b, col_c, col_d = st.columns(4)
-
-        with col_a:
-            if st.button("✓ Looks good!", use_container_width=True):
-                st.session_state.chat_history.append({
-                    "role": "user",
-                    "content": "Looks good!"
-                })
-                st.session_state.is_confirmed = True
-                st.rerun()
-
-        with col_b:
-            if st.button("Add a filter", use_container_width=True):
-                st.session_state.chat_history.append({
-                    "role": "user",
-                    "content": "Can you add a date filter?"
-                })
-                st.rerun()
-
-        with col_c:
-            if st.button("Change chart type", use_container_width=True):
-                st.session_state.chat_history.append({
-                    "role": "user",
-                    "content": "Can you change the first chart to a line chart?"
-                })
-                st.rerun()
-
-        with col_d:
-            if st.button("Modify time range", use_container_width=True):
-                st.session_state.chat_history.append({
-                    "role": "user",
-                    "content": "Can you show data for the last 60 days instead?"
-                })
-                st.rerun()
+        # Automatically proceed to dashboard after analysis
+        if not st.session_state.is_confirmed:
+            st.session_state.is_confirmed = True
+            st.rerun()
 
         # Debug Panel
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -145,20 +84,32 @@ def generate_initial_agent_message():
         screenshot_bytes = st.session_state.screenshot_file.read()
         screenshot_filename = st.session_state.screenshot_file.name
 
-        # Get database metadata from ingestion response
+        # Get database metadata from stored metadata
         database_metadata = {}
-        if hasattr(st.session_state, 'ingestion_response'):
-            tables = st.session_state.ingestion_response.get('tables', [])
+        if hasattr(st.session_state, 'metadata') and st.session_state.metadata:
+            tables = st.session_state.metadata  # This is already a list of table metadata
+
+            # Debug: print metadata structure to understand what we have
+            print(f"DEBUG: Found {len(tables)} tables in metadata")
+            for i, table in enumerate(tables):
+                print(f"DEBUG: Table {i}: {table.get('table_name', 'UNNAMED')} with {len(table.get('columns', []))} columns")
+
             database_metadata = {
                 "tables": [
                     {
                         "table_name": table.get('table_name'),
                         "columns": table.get('columns', []),
-                        "row_count": table.get('row_count')
+                        "row_count": table.get('row_count'),
+                        "column_stats": table.get('column_stats', {})
                     }
                     for table in tables
                 ]
             }
+
+            print(f"DEBUG: Formatted database_metadata with {len(database_metadata['tables'])} tables")
+        else:
+            print("DEBUG: No metadata found in session state!")
+            print(f"DEBUG: Session state keys: {list(st.session_state.keys())}")
 
         # Call vision agent
         with st.spinner("🤖 Analyzing your sketch with AI..."):
@@ -209,10 +160,7 @@ def generate_initial_agent_message():
 {clarification_note}
 ---
 
-Does this match your requirements? You can:
-- ✅ Reply "Looks good!" to generate the dashboard
-- ✏️ Request changes or corrections
-- ➕ Add more details about the visualization
+Analysis complete! The dashboard will be generated based on this understanding.
 """
 
         return message

@@ -111,9 +111,41 @@ class APIClient:
         import base64
         image_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
 
-        # Construct the prompt
-        prompt_text = f"""Database Metadata:
-{database_metadata}
+        # Construct the prompt with better formatting
+        def format_metadata_for_agent(metadata):
+            """Format database metadata in a structured way for agent consumption"""
+            if not metadata or not metadata.get('tables'):
+                return "No database metadata available."
+
+            formatted = "DATABASE SCHEMA:\n"
+            for table in metadata.get('tables', []):
+                formatted += f"\nTable: {table.get('table_name')} ({table.get('row_count', 0)} rows)\n"
+                formatted += "Columns:\n"
+
+                for col in table.get('columns', []):
+                    col_info = f"  - {col.get('name')} ({col.get('type', 'unknown')})"
+
+                    # Add statistics if available
+                    stats = table.get('column_stats', {}).get(col.get('name'), {})
+                    if stats:
+                        stat_parts = []
+                        if 'min' in stats and stats['min'] is not None:
+                            stat_parts.append(f"min: {stats['min']}")
+                        if 'max' in stats and stats['max'] is not None:
+                            stat_parts.append(f"max: {stats['max']}")
+                        if 'avg' in stats and stats['avg'] is not None:
+                            stat_parts.append(f"avg: {stats['avg']:.2f}")
+                        if 'distinct_count' in stats:
+                            stat_parts.append(f"distinct: {stats['distinct_count']}")
+
+                        if stat_parts:
+                            col_info += f" [{', '.join(stat_parts)}]"
+
+                    formatted += col_info + "\n"
+
+            return formatted
+
+        prompt_text = f"""{format_metadata_for_agent(database_metadata)}
 
 """
         if user_notes:
