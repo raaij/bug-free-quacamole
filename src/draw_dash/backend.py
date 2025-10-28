@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 import tempfile
 import shutil
 from pathlib import Path
+from src.draw_dash.duckdb_manager import db_manager
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -32,12 +33,13 @@ app.add_middleware(
 # Pydantic Models
 # ============================================================================
 
-class UploadResponse(BaseModel):
-    """Response after uploading files"""
+class IngestResponse(BaseModel):
+    """Response after ingesting data"""
     session_id: str
-    dataset_info: Dict[str, Any]
+    tables: List[Dict[str, Any]]  # List of table metadata
     screenshot_info: Dict[str, Any]
     message: str
+    clarification: Optional[str] = None
 
 
 class AgentUnderstanding(BaseModel):
@@ -49,50 +51,15 @@ class AgentUnderstanding(BaseModel):
     confidence: float
 
 
-class ChatMessage(BaseModel):
-    """Chat message structure"""
-    role: str  # "user" or "agent"
-    content: str
-
-
-class ChatRequest(BaseModel):
-    """Request to send chat message"""
-    session_id: str
-    message: str
-
-
-class ChatResponse(BaseModel):
-    """Response from chat endpoint"""
-    message: ChatMessage
-    updated_understanding: Optional[AgentUnderstanding] = None
-
-
-class DashboardRequest(BaseModel):
-    """Request to generate dashboard"""
-    session_id: str
-    understanding: AgentUnderstanding
-
-
-class DashboardResponse(BaseModel):
-    """Response with generated dashboard"""
-    dashboard_id: str
-    charts: List[Dict[str, Any]]
-    status: str
-    message: str
-
-
-class RefinementRequest(BaseModel):
-    """Request to refine dashboard"""
-    dashboard_id: str
-    refinement_instruction: str
-
-
 # ============================================================================
-# In-memory storage (replace with database in production)
+# App State Storage
 # ============================================================================
 
-sessions = {}  # session_id -> session data
-dashboards = {}  # dashboard_id -> dashboard data
+# Initialize app state on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application state"""
+    app.state.sessions = {}  # session_id -> session metadata
 
 
 # ============================================================================
@@ -109,33 +76,50 @@ async def root():
     }
 
 
-@app.post("/api/upload", response_model=UploadResponse)
-async def upload_files(
-    dataset: UploadFile = File(...),
+@app.post("/api/ingest", response_model=IngestResponse)
+async def ingest_data(
+    datasets: List[UploadFile] = File(...),
     screenshot: UploadFile = File(...),
     clarification: Optional[str] = Form(None)
 ):
     """
-    Upload dataset and screenshot files
+    Unified endpoint: Upload files and ingest data into DuckDB
+
+    This endpoint:
+    1. Accepts multiple dataset files and a screenshot
+    2. Validates file types and sizes
+    3. Saves files temporarily
+    4. Ingests each dataset into DuckDB as a separate table
+    5. Stores metadata in app.state
 
     Args:
-        dataset: CSV, JSON, or Parquet file
+        datasets: List of CSV, JSON, or Parquet files (max 10MB each)
         screenshot: PNG, JPG, or JPEG image
         clarification: Optional text description
 
     Returns:
-        UploadResponse with session ID and file info
+        IngestResponse with session ID, table metadata, and screenshot info
     """
+    import uuid
+    import re
 
     # Validate file types
     allowed_dataset_types = ["text/csv", "application/json", "application/octet-stream"]
     allowed_image_types = ["image/png", "image/jpeg"]
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-    if dataset.content_type not in allowed_dataset_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid dataset type. Allowed: CSV, JSON, Parquet"
-        )
+    # Validate all dataset files
+    for dataset in datasets:
+        if dataset.content_type not in allowed_dataset_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid dataset type for {dataset.filename}. Allowed: CSV, JSON, Parquet"
+            )
+        if dataset.size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{dataset.filename} exceeds 10MB limit ({dataset.size / (1024 * 1024):.2f} MB)"
+            )
 
     if screenshot.content_type not in allowed_image_types:
         raise HTTPException(
@@ -144,81 +128,80 @@ async def upload_files(
         )
 
     # Generate session ID
-    import uuid
     session_id = str(uuid.uuid4())
 
     # Save files temporarily
     temp_dir = Path(tempfile.gettempdir()) / "drawdash" / session_id
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset_path = temp_dir / dataset.filename
+    # Save screenshot
     screenshot_path = temp_dir / screenshot.filename
-
-    with dataset_path.open("wb") as buffer:
-        shutil.copyfileobj(dataset.file, buffer)
-
     with screenshot_path.open("wb") as buffer:
         shutil.copyfileobj(screenshot.file, buffer)
 
-    # Store session data
-    sessions[session_id] = {
-        "dataset_path": str(dataset_path),
-        "screenshot_path": str(screenshot_path),
+    screenshot_info = {
+        "filename": screenshot.filename,
+        "size": screenshot.size,
+        "type": screenshot.content_type,
+        "path": str(screenshot_path)
+    }
+
+    # Process and ingest all datasets
+    tables_metadata = []
+
+    try:
+        for idx, dataset in enumerate(datasets):
+            # Save dataset file
+            dataset_path = temp_dir / dataset.filename
+            with dataset_path.open("wb") as buffer:
+                shutil.copyfileobj(dataset.file, buffer)
+
+            # Create unique table name
+            filename = Path(dataset.filename).stem
+            # Remove all non-alphanumeric characters except underscores
+            safe_filename = re.sub(r'[^a-zA-Z0-9_]', '_', filename)
+            # Ensure it starts with a letter or underscore
+            if safe_filename and safe_filename[0].isdigit():
+                safe_filename = f"table_{safe_filename}"
+            table_name = f"{safe_filename}_{session_id.replace('-', '_')}"
+
+            # Ingest file into DuckDB and get metadata
+            metadata = db_manager.ingest_file(
+                file_path=str(dataset_path),
+                table_name=table_name
+            )
+
+            # Add original filename to metadata
+            metadata["original_filename"] = dataset.filename
+            metadata["file_size"] = dataset.size
+
+            tables_metadata.append(metadata)
+
+    except Exception as e:
+        # Clean up temp files on error
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to ingest data: {str(e)}"
+        )
+
+    # Store metadata in app.state
+    app.state.sessions[session_id] = {
+        "tables": tables_metadata,
+        "screenshot_info": screenshot_info,
         "clarification": clarification,
-        "status": "uploaded"
+        "temp_dir": str(temp_dir),
+        "status": "ingested"
     }
 
-    return UploadResponse(
+    return IngestResponse(
         session_id=session_id,
-        dataset_info={
-            "filename": dataset.filename,
-            "size": dataset.size,
-            "type": dataset.content_type
-        },
-        screenshot_info={
-            "filename": screenshot.filename,
-            "size": screenshot.size,
-            "type": screenshot.content_type
-        },
-        message="Files uploaded successfully"
+        tables=tables_metadata,
+        screenshot_info=screenshot_info,
+        message=f"{len(datasets)} dataset(s) ingested into DuckDB",
+        clarification=clarification
     )
-
-
-@app.post("/api/ingest/{session_id}")
-async def ingest_data(session_id: str):
-    """
-    Ingest dataset into DuckDB
-
-    Args:
-        session_id: Session identifier
-
-    Returns:
-        Status of data ingestion
-    """
-
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    session = sessions[session_id]
-
-    # TODO: Implement data ingestion agent
-    # - Load dataset into DuckDB
-    # - Generate metadata (schema, statistics)
-    # - Store in metadata store
-
-    session["status"] = "ingested"
-    session["metadata"] = {
-        "rows": 1000,  # Placeholder
-        "columns": 10,  # Placeholder
-        "schema": {}   # Placeholder
-    }
-
-    return {
-        "session_id": session_id,
-        "status": "success",
-        "message": "Data ingested into DuckDB",
-        "metadata": session["metadata"]
-    }
 
 
 @app.post("/api/analyze/{session_id}", response_model=AgentUnderstanding)
@@ -233,10 +216,10 @@ async def analyze_screenshot(session_id: str):
         Agent's understanding of the requirements
     """
 
-    if session_id not in sessions:
+    if session_id not in app.state.sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    session = sessions[session_id]
+    session = app.state.sessions[session_id]
 
     # TODO: Implement Vision Agent
     # - Analyze screenshot with Gemini Vision
@@ -274,166 +257,6 @@ async def analyze_screenshot(session_id: str):
     return understanding
 
 
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    """
-    Handle chat messages for refinement
-
-    Args:
-        request: ChatRequest with session_id and message
-
-    Returns:
-        Agent response and updated understanding if changed
-    """
-
-    if request.session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    session = sessions[request.session_id]
-
-    # TODO: Implement chat agent
-    # - Process user message
-    # - Update understanding if needed
-    # - Generate response
-
-    # Mock response
-    response_message = ChatMessage(
-        role="agent",
-        content="I understand you'd like some changes. Let me update the specifications..."
-    )
-
-    return ChatResponse(
-        message=response_message,
-        updated_understanding=None  # Include if understanding changed
-    )
-
-
-@app.post("/api/generate", response_model=DashboardResponse)
-async def generate_dashboard(request: DashboardRequest):
-    """
-    Generate dashboard from understanding
-
-    Args:
-        request: DashboardRequest with session_id and understanding
-
-    Returns:
-        Generated dashboard with charts
-    """
-
-    if request.session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    session = sessions[request.session_id]
-
-    # TODO: Implement dashboard generation pipeline
-    # 1. SQL Generation Agent - Convert understanding to SQL
-    # 2. Query Execution Agent - Execute with retry loop
-    # 3. Visualization Agent - Generate chart code
-
-    import uuid
-    dashboard_id = str(uuid.uuid4())
-
-    # Mock dashboard
-    charts = [
-        {
-            "id": "chart_1",
-            "type": "bar",
-            "title": viz["title"],
-            "data": {},  # Placeholder
-            "config": viz
-        }
-        for viz in request.understanding.visualizations
-    ]
-
-    dashboards[dashboard_id] = {
-        "session_id": request.session_id,
-        "understanding": request.understanding.dict(),
-        "charts": charts
-    }
-
-    return DashboardResponse(
-        dashboard_id=dashboard_id,
-        charts=charts,
-        status="generated",
-        message="Dashboard generated successfully"
-    )
-
-
-@app.post("/api/refine/{dashboard_id}")
-async def refine_dashboard(dashboard_id: str, request: RefinementRequest):
-    """
-    Refine existing dashboard based on user feedback
-
-    Args:
-        dashboard_id: Dashboard identifier
-        request: Refinement instructions
-
-    Returns:
-        Updated dashboard
-    """
-
-    if dashboard_id not in dashboards:
-        raise HTTPException(status_code=404, detail="Dashboard not found")
-
-    # TODO: Implement refinement logic
-    # - Parse refinement instruction
-    # - Update SQL queries if needed
-    # - Regenerate affected charts
-
-    return {
-        "dashboard_id": dashboard_id,
-        "status": "refined",
-        "message": "Dashboard updated based on your feedback"
-    }
-
-
-@app.get("/api/dashboard/{dashboard_id}")
-async def get_dashboard(dashboard_id: str):
-    """
-    Retrieve dashboard by ID
-
-    Args:
-        dashboard_id: Dashboard identifier
-
-    Returns:
-        Dashboard data
-    """
-
-    if dashboard_id not in dashboards:
-        raise HTTPException(status_code=404, detail="Dashboard not found")
-
-    return dashboards[dashboard_id]
-
-
-@app.delete("/api/session/{session_id}")
-async def delete_session(session_id: str):
-    """
-    Clean up session data
-
-    Args:
-        session_id: Session identifier
-
-    Returns:
-        Deletion confirmation
-    """
-
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    # Clean up temp files
-    session = sessions[session_id]
-    temp_dir = Path(session["dataset_path"]).parent
-    if temp_dir.exists():
-        shutil.rmtree(temp_dir)
-
-    # Remove from memory
-    del sessions[session_id]
-
-    return {
-        "session_id": session_id,
-        "status": "deleted",
-        "message": "Session cleaned up successfully"
-    }
 
 
 # ============================================================================

@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from src.draw_dash.frontend.state import navigate_to
+from src.draw_dash.frontend.components.debug_panel import render_debug_panel
 
 
 def render():
@@ -34,6 +35,10 @@ def render_split_view():
     # Right Panel: Dashboard
     with dashboard_col if chat_col else dashboard_col:
         render_dashboard_panel()
+
+    # Debug Panel (below split view)
+    st.markdown("<hr>", unsafe_allow_html=True)
+    render_debug_panel()
 
 
 def render_chat_panel():
