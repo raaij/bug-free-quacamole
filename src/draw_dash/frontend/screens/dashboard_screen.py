@@ -4,8 +4,8 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from src.draw_dash.frontend.state import navigate_to
-from src.draw_dash.frontend.components.debug_panel import render_debug_panel
+from draw_dash.frontend.state import navigate_to
+from draw_dash.frontend.components.debug_panel import render_debug_panel
 
 
 def render():
