@@ -1,6 +1,6 @@
 from google.adk.agents import Agent
 
-from draw_dash.tool import execute_query
+from draw_dash.tool import execute_sql
 
 root_agent = Agent(
     name="query_execution_agent",
@@ -39,5 +39,5 @@ This has the following columns:
 </csv>
 """
     ),
-    tools=[execute_query],
+    tools=[execute_sql],
 )
