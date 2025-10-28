@@ -1,9 +1,9 @@
 """Screen 2: Chat Screen - Agent shows understanding and gets confirmation"""
 
 import streamlit as st
-from src.draw_dash.frontend.state import navigate_to
-from src.draw_dash.frontend.components.debug_panel import render_debug_panel
-from src.draw_dash.frontend.api_client import api_client
+from draw_dash.frontend.state import navigate_to
+from draw_dash.frontend.components.debug_panel import render_debug_panel
+from draw_dash.frontend.api_client import api_client
 
 
 def render():

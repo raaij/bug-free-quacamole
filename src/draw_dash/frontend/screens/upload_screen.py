@@ -3,9 +3,9 @@
 import streamlit as st
 from PIL import Image
 import time
-from src.draw_dash.frontend.state import navigate_to
-from src.draw_dash.frontend.api_client import api_client
-from src.draw_dash.frontend.components.debug_panel import render_debug_panel
+from draw_dash.frontend.state import navigate_to
+from draw_dash.frontend.api_client import api_client
+from draw_dash.frontend.components.debug_panel import render_debug_panel
 
 
 def render():
