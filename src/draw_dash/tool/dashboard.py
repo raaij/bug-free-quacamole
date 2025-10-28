@@ -1,6 +1,10 @@
 from draw_dash.constant import PATH_DRAW_DASH
+from draw_dash.util import initialize_dashboard
+
 
 def read_dashboard_code():
+    initialize_dashboard()
+
     with open(PATH_DRAW_DASH / "frontend2" / "dashboard_screen.py") as file:
         code = file.read()
 

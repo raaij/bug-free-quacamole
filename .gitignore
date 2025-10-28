@@ -220,3 +220,6 @@ __marimo__/
 
 # adk files
 .adk
+
+# dashboard screen
+dashboard_screen.py
