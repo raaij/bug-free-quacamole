@@ -4,8 +4,8 @@ Main Streamlit application entry point
 """
 
 import streamlit as st
-from src.draw_dash.frontend.screens import upload_screen, chat_screen, dashboard_screen
-from src.draw_dash.frontend.state import init_session_state
+from draw_dash.frontend.screens import upload_screen, chat_screen, dashboard_screen
+from draw_dash.frontend.state import init_session_state
 
 # Page configuration
 st.set_page_config(

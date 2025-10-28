@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any
 import tempfile
 import shutil
 from pathlib import Path
-from src.draw_dash.duckdb_manager import db_manager
+from draw_dash.duckdb_manager import db_manager
 
 # Initialize FastAPI app
 app = FastAPI(
