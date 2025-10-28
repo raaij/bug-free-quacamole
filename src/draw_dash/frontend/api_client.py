@@ -5,14 +5,16 @@ from typing import Optional, Dict, Any
 import streamlit as st
 
 # Backend API URL
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = "http://localhost:8080"
+ADK_API_BASE_URL = "http://localhost:8000"
 
 
 class APIClient:
     """Client for DrawDash backend API"""
 
-    def __init__(self, base_url: str = API_BASE_URL):
+    def __init__(self, base_url: str = API_BASE_URL, adk_base_url: str = ADK_API_BASE_URL):
         self.base_url = base_url
+        self.adk_base_url = adk_base_url
 
     def ingest_data(
         self,
@@ -74,6 +76,110 @@ class APIClient:
             return response.json()
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to analyze screenshot: {str(e)}")
+
+    def call_vision_agent(
+        self,
+        screenshot_bytes: bytes,
+        screenshot_filename: str,
+        database_metadata: Dict[str, Any],
+        user_notes: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Call the vision_agent through ADK API server
+
+        Args:
+            screenshot_bytes: Screenshot image file bytes
+            screenshot_filename: Name of screenshot file
+            database_metadata: Database schema information (tables, columns, types)
+            user_notes: Optional user clarification text
+
+        Returns:
+            Dict with 'already_existing_columns' and 'calculation_needed' lists
+        """
+        # Create a session for the vision agent
+        session_id = f"vision_session_{hash(screenshot_filename)}"
+        user_id = "frontend_user"
+
+        # First, create/update the session
+        session_url = f"{self.adk_base_url}/apps/vision_agent/users/{user_id}/sessions/{session_id}"
+        try:
+            requests.post(session_url, json={"state": {}}, timeout=10)
+        except:
+            pass  # Session creation is optional
+
+        # Prepare the message with image and metadata
+        import base64
+        image_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+
+        # Construct the prompt
+        prompt_text = f"""Database Metadata:
+{database_metadata}
+
+"""
+        if user_notes:
+            prompt_text += f"User Notes: {user_notes}\n\n"
+
+        prompt_text += "Please analyze the sketch image and categorize the data requirements."
+
+        message = {
+            "role": "user",
+            "parts": [
+                {
+                    "inline_data": {
+                        "mime_type": "image/png" if screenshot_filename.lower().endswith('.png') else "image/jpeg",
+                        "data": image_base64
+                    }
+                },
+                {"text": prompt_text}
+            ]
+        }
+
+        # Call the ADK /run endpoint
+        run_url = f"{self.adk_base_url}/run"
+        payload = {
+            "app_name": "vision_agent",
+            "user_id": user_id,
+            "session_id": session_id,
+            "new_message": message
+        }
+
+        try:
+            response = requests.post(run_url, json=payload, timeout=60)
+            response.raise_for_status()
+            events = response.json()
+
+            # Extract the agent's response from events
+            # The response is an array of events with structure: [{content: {parts: [{text: "..."}], role: "model"}, ...}]
+            for event in events:
+                if event.get("content") and event["content"].get("parts"):
+                    for part in event["content"]["parts"]:
+                        if "text" in part:
+                            agent_text = part["text"]
+                            # Parse JSON from agent's response
+                            import json
+                            try:
+                                # First try direct JSON parsing
+                                result = json.loads(agent_text)
+                                return result
+                            except json.JSONDecodeError:
+                                # Try to extract JSON from markdown code blocks
+                                if "```json" in agent_text:
+                                    json_start = agent_text.find("```json") + 7
+                                    json_end = agent_text.find("```", json_start)
+                                    json_text = agent_text[json_start:json_end].strip()
+                                    return json.loads(json_text)
+                                elif "```" in agent_text:
+                                    # Try generic code block
+                                    json_start = agent_text.find("```") + 3
+                                    json_end = agent_text.find("```", json_start)
+                                    json_text = agent_text[json_start:json_end].strip()
+                                    return json.loads(json_text)
+                                raise Exception(f"Could not parse agent response as JSON: {agent_text}")
+
+            raise Exception("No agent response found in events")
+
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to call vision agent: {str(e)}")
 
 
 # Singleton instance
