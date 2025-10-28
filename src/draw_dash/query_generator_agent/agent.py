@@ -3,9 +3,9 @@ QueryGenerator Agent
 
 This agent receives:
 1. Database metadata (schema, columns, statistics)
-2. Visualization specification (what chart to create)
+2. VisionAgent output (already_existing_columns and calculation_needed)
 
-And generates SQL queries to extract the needed data.
+And generates SQL queries with formulas for calculated fields.
 """
 
 from google.adk.agents import Agent
@@ -13,33 +13,70 @@ from google.adk.agents import Agent
 # ADK web requires this to be named 'root_agent'
 root_agent = Agent(
     name="query_generator",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-pro-preview-03-25",
     description="Generates SQL queries for data visualization based on database schema and visualization requirements",
-    instruction="""You are a SQL query generator for data visualization dashboards.
+    instruction="""You are a SQL query generator that creates formulas for calculated fields.
 
 Your inputs are:
-1. DATABASE METADATA: Contains table schemas, column names, data types, and statistics
-2. VISUALIZATION SPEC: Describes what chart/plot is needed (type, axes, filters, aggregations)
+1. DATABASE METADATA: Table schemas, column names, data types, statistics
+2. VISION AGENT OUTPUT: JSON with:
+   - already_existing_columns: Columns that exist in the database
+   - calculation_needed: Fields that need formulas/aggregations
 
 Your job:
-- Analyze what data the visualization needs
-- Map visualization requirements to available database columns
-- Generate a valid DuckDB SQL query to extract that data
-- Handle aggregations (AVG, SUM, COUNT, etc.) when needed
-- Apply filters (WHERE clauses) when specified
-- Use GROUP BY for aggregated visualizations
-
-Important:
-- Use EXACT column names from the metadata (case-sensitive)
+- SELECT all already_existing_columns directly
+- For each field in calculation_needed:
+  - Analyze what it represents (BMI, profit margin, average, etc.)
+  - Find the formula using available columns from metadata
+  - Add the calculation to the SELECT clause with an alias
 - Generate clean, executable DuckDB SQL
-- If you receive error feedback, fix the query based on the error message
-- Output ONLY the SQL query, no explanations
 
-Example:
+Examples:
+
+Example 1:
 Input:
-- Metadata shows columns: PURCHASES, PAYMENTS, TENURE
-- Viz spec wants: scatter plot with x=PURCHASES, y=PAYMENTS
+- Metadata columns: sales, profit, revenue
+- Vision output: {
+    "already_existing_columns": ["sales"],
+    "calculation_needed": ["profit_margin"]
+  }
 
-Output: SELECT PURCHASES, PAYMENTS FROM marketing
+Output: SELECT sales, profit / sales as profit_margin FROM marketing WHERE sales > 0
+
+(Profit margin = profit / sales, avoid division by zero)
+
+---
+
+Example 3:
+Input:
+- Metadata columns: region, purchases, customer_id
+- Vision output: {
+    "already_existing_columns": ["region"],
+    "calculation_needed": ["average_purchases"]
+  }
+
+Output: SELECT region, AVG(purchases) as average_purchases FROM marketing GROUP BY region
+
+(Average requires aggregation and GROUP BY)
+
+---
+
+Example 4:
+Input:
+- Metadata columns: PURCHASES, PAYMENTS, CREDIT_LIMIT
+- Vision output: {
+    "already_existing_columns": ["PURCHASES"],
+    "calculation_needed": ["payment_ratio", "credit_utilization"]
+  }
+
+Output: SELECT PURCHASES, PAYMENTS / PURCHASES as payment_ratio, PURCHASES / CREDIT_LIMIT as credit_utilization FROM marketing WHERE PURCHASES > 0 AND CREDIT_LIMIT > 0
+
+IMPORTANT:
+- Output ONLY the SQL query, no explanations
+- Use EXACT column names from metadata (case-sensitive)
+- Figure out formulas intelligently (BMI, ratios, percentages, averages)
+- Add WHERE clauses to avoid division by zero
+- Use GROUP BY when calculating averages/aggregations
+- Think about common metrics: BMI, profit margin, ratios, averages, percentages
 """
 )
